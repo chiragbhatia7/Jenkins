@@ -16,7 +16,9 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} -f nginx/Dockerfile ."
+                    dir('nginx') {
+                        sh "docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} ."
+                    }
                 }
             }
         }
