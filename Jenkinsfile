@@ -4,12 +4,25 @@ pipeline {
     environment {
         DOCKER_IMAGE = 'nginx-app'
         DOCKER_TAG = 'latest'
+        NETWORK_NAME = 'jenkins-net'
     }
     
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+        
+        stage('Setup Network') {
+            steps {
+                script {
+                    sh '''
+                        if ! docker network ls | grep -q ${NETWORK_NAME}; then
+                            docker network create ${NETWORK_NAME}
+                        fi
+                    '''
+                }
             }
         }
         
@@ -29,7 +42,7 @@ pipeline {
                     sh '''
                         docker stop ${DOCKER_IMAGE} || true
                         docker rm ${DOCKER_IMAGE} || true
-                        docker run -d -p 8081:80 --name ${DOCKER_IMAGE} --network jenkins-net ${DOCKER_IMAGE}:${DOCKER_TAG}
+                        docker run -d -p 8081:80 --name ${DOCKER_IMAGE} --network ${NETWORK_NAME} ${DOCKER_IMAGE}:${DOCKER_TAG}
                     '''
                 }
             }
@@ -53,6 +66,16 @@ pipeline {
                 sh '''
                     docker stop ${DOCKER_IMAGE} || true
                     docker rm ${DOCKER_IMAGE} || true
+                '''
+            }
+        }
+        cleanup {
+            script {
+                sh '''
+                    # Keep the network if the build succeeds, remove it if it fails
+                    if [ "${currentBuild.currentResult}" != "SUCCESS" ]; then
+                        docker network rm ${NETWORK_NAME} || true
+                    fi
                 '''
             }
         }
