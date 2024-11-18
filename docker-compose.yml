@@ -2,7 +2,9 @@
 version: '3.8'
 services:
   jenkins:
-    image: jenkins/jenkins:lts
+    build: 
+      context: ./jenkins
+      dockerfile: Dockerfile
     privileged: true
     user: root
     ports:
@@ -12,16 +14,6 @@ services:
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - jenkins-net
-
-  nginx:
-    build: 
-      context: ./nginx
-      dockerfile: Dockerfile
-    ports:
-      - "8081:80"
-    container_name: nginx-app
     networks:
       - jenkins-net
 
