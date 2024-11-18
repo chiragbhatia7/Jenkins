@@ -5,8 +5,8 @@ pipeline {
         DOCKER_IMAGE = 'nginx-app'
         DOCKER_TAG = 'latest'
         NETWORK_NAME = 'jenkins-net'
-        // Get host IP for WSL2
-        HOST_IP = sh(script: "ip route | grep default | awk '{print \$3}'", returnStdout: true).trim()
+        // Fixed HOST_IP retrieval for WSL2
+        HOST_IP = sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
     }
     
     stages {
@@ -46,10 +46,10 @@ pipeline {
                     sh 'docker stop ${DOCKER_IMAGE} || true'
                     sh 'docker rm ${DOCKER_IMAGE} || true'
                     
-                    // Run new container with host network
+                    // Run new container on the custom network
                     sh '''
                         docker run -d \
-                            --network host \
+                            --network ${NETWORK_NAME} \
                             --name ${DOCKER_IMAGE} \
                             ${DOCKER_IMAGE}:${DOCKER_TAG}
                     '''
@@ -69,13 +69,11 @@ pipeline {
                     
                     // Perform health check using different methods
                     sh '''
-                        # Try localhost
-                        curl -f http://localhost:80 || \
-                        # Try host IP
-                        curl -f http://${HOST_IP}:80 || \
-                        # Try container IP
+                        # Try using HOST_IP
+                        curl -f http://${HOST_IP}:80/health || \
+                        # Try container IP from the network
                         CONTAINER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${DOCKER_IMAGE}) && \
-                        curl -f http://${CONTAINER_IP}:80 || \
+                        curl -f http://${CONTAINER_IP}:80/health || \
                         exit 1
                     '''
                 }
