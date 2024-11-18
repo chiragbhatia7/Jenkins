@@ -5,6 +5,8 @@ pipeline {
         DOCKER_IMAGE = 'nginx-app'
         DOCKER_TAG = 'latest'
         NETWORK_NAME = 'jenkins-net'
+        // Get host IP for WSL2
+        HOST_IP = sh(script: "ip route | grep default | awk '{print \$3}'", returnStdout: true).trim()
     }
     
     stages {
@@ -44,20 +46,17 @@ pipeline {
                     sh 'docker stop ${DOCKER_IMAGE} || true'
                     sh 'docker rm ${DOCKER_IMAGE} || true'
                     
-                    // Verify network exists
-                    sh 'docker network inspect ${NETWORK_NAME}'
-                    
-                    // Run new container
+                    // Run new container with host network
                     sh '''
                         docker run -d \
-                            -p 8081:80 \
+                            --network host \
                             --name ${DOCKER_IMAGE} \
-                            --network ${NETWORK_NAME} \
                             ${DOCKER_IMAGE}:${DOCKER_TAG}
                     '''
                     
                     // Verify container is running
                     sh 'docker ps | grep ${DOCKER_IMAGE}'
+                    sh 'docker logs ${DOCKER_IMAGE}'
                 }
             }
         }
@@ -66,13 +65,18 @@ pipeline {
             steps {
                 script {
                     // Wait for container to be ready
-                    sh 'sleep 10'
+                    sh 'sleep 15'
                     
-                    // Check container status
+                    // Perform health check using different methods
                     sh '''
-                        docker ps | grep ${DOCKER_IMAGE}
-                        docker logs ${DOCKER_IMAGE}
-                        curl -f http://localhost:8081 || exit 1
+                        # Try localhost
+                        curl -f http://localhost:80 || \
+                        # Try host IP
+                        curl -f http://${HOST_IP}:80 || \
+                        # Try container IP
+                        CONTAINER_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${DOCKER_IMAGE}) && \
+                        curl -f http://${CONTAINER_IP}:80 || \
+                        exit 1
                     '''
                 }
             }
@@ -82,7 +86,7 @@ pipeline {
     post {
         always {
             script {
-                // Cleanup in case of any result
+                // Cleanup
                 sh '''
                     docker stop ${DOCKER_IMAGE} || true
                     docker rm ${DOCKER_IMAGE} || true
