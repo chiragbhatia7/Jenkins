@@ -1,0 +1,5 @@
+# jenkins/plugins.txt
+docker-workflow:563.vd5d2e5c4007f
+workflow-aggregator:596.v8c21c963d92d
+git:5.2.0
+docker-plugin:1.5

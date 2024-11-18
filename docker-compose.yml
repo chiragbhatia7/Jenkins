@@ -1,0 +1,25 @@
+# docker-compose.yml
+version: '3.8'
+services:
+  jenkins:
+    build: 
+      context: ./jenkins
+      dockerfile: Dockerfile
+    privileged: true
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    container_name: jenkins
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - jenkins-net
+
+networks:
+  jenkins-net:
+    driver: bridge
+
+volumes:
+  jenkins_home:
